@@ -131,6 +131,30 @@ app.post('/urls/shorten', async (req, res) => {
     }
 })
 
+app.get('/urls/:id', async (req, res) => {
+
+    const { id } = req.params;
+
+    try {
+        const links = await connection.query(`SELECT * FROM links WHERE id=$1`,
+            [id]);
+
+        if (links.rows.length === 0) {
+            return res.sendStatus(404);
+        }
+
+        delete links.rows[0].createdAt;
+        delete links.rows[0].visitCount;
+        delete links.rows[0].userId;
+
+        res.status(200).send(links.rows[0]);
+    }
+    catch (e) {
+        res.sendStatus(500);
+        console.log(e);
+    }
+})
+
 const port = process.env.PORT || 4000;
 
 app.listen(port, () => {
