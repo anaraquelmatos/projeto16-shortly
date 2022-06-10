@@ -184,7 +184,7 @@ app.get('/urls/open/:shortUrl', async (req, res) => {
             return res.sendStatus(404);
         }
 
-        const sumViews = parseInt(links.rows[0].visitCount + view);
+        const sumViews = parseInt(links.rows[0].visitCount) + view;
 
         await connection.query(`UPDATE links SET "visitCount"=$1 WHERE id=$2`, [sumViews, links.rows[0].id])
 
@@ -293,7 +293,7 @@ app.get('/ranking', async (req, res) => {
         ORDER BY "visitCount" DESC
         LIMIT 10`);
 
-        res.status(200).send(visits.rows)
+        res.status(200).send(visits.rows);
 
     }
     catch (e) {
