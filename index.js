@@ -280,6 +280,28 @@ app.get('/users/:id', async (req, res) => {
     }
 })
 
+app.get('/ranking', async (req, res) => {
+
+    try{
+        const visits = await connection.query(`
+        SELECT users.id, users.name, COUNT(links."userId")
+        AS "linksCount", SUM(links."visitCount") AS "visitCount"
+        FROM links
+        JOIN users
+        ON links."userId" = users.id
+        GROUP BY users.id
+        ORDER BY "visitCount" DESC
+        LIMIT 10`);
+
+        res.status(200).send(visits.rows)
+
+    }
+    catch (e) {
+        res.sendStatus(500);
+        console.log(e);
+    }
+})
+
 const port = process.env.PORT || 4000;
 
 app.listen(port, () => {
