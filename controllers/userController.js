@@ -4,20 +4,12 @@ export async function getUserId(req, res) {
 
         const { id } = req.params;
     
-        const { authorization } = req.headers;
-        const token = authorization?.replace("Bearer", "").trim();
-    
         try {
     
             const user = await connection.query(`SELECT * FROM users WHERE id=$1`,
                 [id]);
     
             if (user.rows.length === 0) return res.sendStatus(404);
-    
-            const session = await connection.query(`SELECT * FROM sessions WHERE token=$1`,
-                [token]);
-    
-            if (session.rows.length === 0) return res.sendStatus(401);
     
             const visits = await connection.query(`
             SELECT 

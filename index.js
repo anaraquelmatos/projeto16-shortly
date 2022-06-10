@@ -6,6 +6,7 @@ import { postSignIn } from "./controllers/signinController.js";
 import { getUserId } from "./controllers/userController.js";
 import { getRanking } from "./controllers/rankingController.js";
 import urlsRouters from "./routers/urlsRouters.js";
+import { tokenMiddleware } from "./middlewares/tokenMiddleware.js";
 
 const app = express();
 
@@ -19,7 +20,7 @@ app.post('/signin', postSignIn)
 
 app.use(urlsRouters);
 
-app.get('/users/:id', getUserId)
+app.get('/users/:id', tokenMiddleware, getUserId)
 
 app.get('/ranking', getRanking)
 
