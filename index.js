@@ -24,7 +24,7 @@ app.get('/users/:id', tokenMiddleware, getUserId)
 
 app.get('/ranking', getRanking)
 
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 5000;
 
 app.listen(port, () => {
     console.log("Servidor conectado!");
