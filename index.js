@@ -18,19 +18,13 @@ app.post('/signup', async (req, res) => {
 
     const { name, email, password } = req.body;
 
-    const user = {
-        name,
-        email,
-        password
-    }
-
     const userSchema = joi.object({
         name: joi.string().required(),
         email: joi.string().email().required(),
         password: joi.string().required()
     });
 
-    const { error } = userSchema.validateAsync({ user });
+    const { error } = userSchema.validateAsync({ name, email, password });
 
     if (error) {
         res.status(422).send(error.details.map(detail => detail.message));;
@@ -58,17 +52,12 @@ app.post('/signin', async (req, res) => {
 
     const { email, password } = req.body;
 
-    const user = {
-        email,
-        password
-    }
-
     const userSchema = joi.object({
         email: joi.string().email().required(),
         password: joi.string().required()
     });
 
-    const { error } = userSchema.validateAsync({ user });
+    const { error } = userSchema.validateAsync({ email, password });
 
     if (error) {
         res.status(422).send(error.details.map(detail => detail.message));;
@@ -79,14 +68,14 @@ app.post('/signin', async (req, res) => {
         const userValidation = await connection.query(`SELECT * FROM users WHERE email=$1 AND password=$2`,
             [email, password]);
 
-        if (userValidation.rows.length !== 0) {
-            const token = v4();
-            res.status(200).send(token);
-            await connection.query(`INSERT INTO sessions (token, "userId") VALUES ($1, $2)`, [token, userValidation.rows[0]]);
-        } else {
+        if (userValidation.rows.length === 0) {
             res.sendStatus(401);
             return;
         }
+
+        const token = v4();
+        await connection.query(`INSERT INTO sessions (token, "userId") VALUES ($1, $2)`, [token, userValidation.rows[0].id]);
+        res.status(200).send(token);
     }
     catch (e) {
         res.sendStatus(500);
@@ -100,6 +89,8 @@ app.post('/urls/shorten', async (req, res) => {
     const token = authorization?.replace("Bearer", "").trim();
 
     const { url } = req.body;
+
+    const view = 0;
 
     const bodySchema = joi.object({
         url: joi.string().pattern(/^https?:\/\/(www\.)[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}$/).required(),
@@ -121,8 +112,8 @@ app.post('/urls/shorten', async (req, res) => {
         } else {
             const shortUrl = nanoid();
             await connection.query(`INSERT INTO links ("shortUrl", url, "userId") VALUES ($1, $2, $3)`,
-                [url, shortUrl, userValidation.rows[0]]);
-            res.status(201).send(shortUrl);
+                [shortUrl, url, session.rows[0].userId]);
+            res.status(201).send({shortUrl});
         }
     }
     catch (e) {
@@ -148,6 +139,31 @@ app.get('/urls/:id', async (req, res) => {
         delete links.rows[0].userId;
 
         res.status(200).send(links.rows[0]);
+    }
+    catch (e) {
+        res.sendStatus(500);
+        console.log(e);
+    }
+})
+
+app.get('/urls/open/:shortUrl', async (req, res) => {
+
+    const { shortUrl } = req.params;
+    const view = 1;
+
+    try {
+        const links = await connection.query(`SELECT * FROM links WHERE "shortUrl"=$1`,
+            [shortUrl]);
+
+        if (links.rows.length === 0) {
+            return res.sendStatus(404);
+        }
+
+        const sumViews = parseInt(links.rows[0].visitCount + view);
+
+        await connection.query(`UPDATE links SET "visitCount"=$1 WHERE id=$2`, [sumViews, links.rows[0].id])
+
+        res.redirect(`/urls/open/${shortUrl}`);
     }
     catch (e) {
         res.sendStatus(500);

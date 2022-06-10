@@ -10,8 +10,8 @@ CREATE table links (
    id serial NOT NULL PRIMARY KEY,
    "createdAt" date NOT NULL DEFAULT NOW(), 
    "shortUrl" text UNIQUE NOT NULL,
-   url text UNIQUE NOT NULL,
-   "visitCount" integer NOT NULL,
+   url text NOT NULL,
+   "visitCount" integer DEFAULT 0,
    "userId" integer NOT NULL REFERENCES users(id)
 );
 
