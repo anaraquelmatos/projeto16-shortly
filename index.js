@@ -184,11 +184,11 @@ app.get('/urls/open/:shortUrl', async (req, res) => {
             return res.sendStatus(404);
         }
 
-        const sumViews = parseInt(links.rows[0].visitCount) + view;
+        const sumViews = Number(links.rows[0].visitCount) + view;
 
         await connection.query(`UPDATE links SET "visitCount"=$1 WHERE id=$2`, [sumViews, links.rows[0].id])
 
-        res.redirect(`/urls/open/${shortUrl}`);
+        res.redirect(links.rows[0].url);
     }
     catch (e) {
         res.sendStatus(500);
