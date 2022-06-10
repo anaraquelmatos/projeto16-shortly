@@ -2,7 +2,6 @@ import connection from "../database.js";
 import joi from "joi";
 import { nanoid } from "nanoid";
 
-
 export async function postUrlShorten(req, res) {
 
     const { authorization } = req.headers;
@@ -25,14 +24,14 @@ export async function postUrlShorten(req, res) {
         const session = await connection.query(`SELECT * FROM sessions WHERE token=$1`,
             [token]);
 
-        if (session.rows.length === 0) {
-            return res.sendStatus(401);
-        } else {
-            const shortUrl = nanoid();
-            await connection.query(`INSERT INTO links ("shortUrl", url, "userId") VALUES ($1, $2, $3)`,
-                [shortUrl, url, session.rows[0].userId]);
-            res.status(201).send({ shortUrl });
-        }
+            if (session.rows.length === 0) {
+                return res.sendStatus(401);
+            } else {
+                const shortUrl = nanoid();
+                await connection.query(`INSERT INTO links ("shortUrl", url, "userId") VALUES ($1, $2, $3)`,
+                    [shortUrl, url, session.rows[0].userId]);
+                res.status(201).send({ shortUrl });
+            }
     }
     catch (e) {
         res.sendStatus(500);
