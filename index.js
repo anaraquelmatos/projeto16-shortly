@@ -113,7 +113,7 @@ app.post('/urls/shorten', async (req, res) => {
             const shortUrl = nanoid();
             await connection.query(`INSERT INTO links ("shortUrl", url, "userId") VALUES ($1, $2, $3)`,
                 [shortUrl, url, session.rows[0].userId]);
-            res.status(201).send({shortUrl});
+            res.status(201).send({ shortUrl });
         }
     }
     catch (e) {
@@ -164,6 +164,42 @@ app.get('/urls/open/:shortUrl', async (req, res) => {
         await connection.query(`UPDATE links SET "visitCount"=$1 WHERE id=$2`, [sumViews, links.rows[0].id])
 
         res.redirect(`/urls/open/${shortUrl}`);
+    }
+    catch (e) {
+        res.sendStatus(500);
+        console.log(e);
+    }
+})
+
+app.delete('/urls/:id', async (req, res) => {
+
+    const { id } = req.params;
+
+    const { authorization } = req.headers;
+    const token = authorization?.replace("Bearer", "").trim();
+
+    try {
+
+        const shortUrl = await connection.query(`SELECT * FROM links WHERE id=$1`,
+            [id]);
+
+        if (shortUrl.rows.length === 0) return res.sendStatus(404);
+
+        const user = await connection.query(`
+        SELECT links."shortUrl", links."userId" AS id
+        FROM links 
+        JOIN sessions
+        ON links."userId" = sessions."userId"
+        WHERE sessions.token=$1
+        AND links."shortUrl"=$2`,
+            [token, shortUrl.rows[0].shortUrl]);
+
+        if (user.rows.length === 0) return res.sendStatus(401);
+
+        await connection.query(`DELETE FROM links WHERE "shortUrl"=$1`, [shortUrl.rows[0].shortUrl]);
+
+        res.sendStatus(204);
+
     }
     catch (e) {
         res.sendStatus(500);
