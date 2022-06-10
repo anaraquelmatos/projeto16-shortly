@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import joi from "joi";
 import { v4 } from "uuid";
 import { nanoid } from "nanoid";
+import bcrypt from "bcrypt";
 
 import connection from "./database.js";
 
@@ -16,18 +17,33 @@ dotenv.config();
 
 app.post('/signup', async (req, res) => {
 
-    const { name, email, password } = req.body;
+    const { name, email, password, confirmPassword } = req.body;
+
+    const passwordHash = bcrypt.hashSync(password, 10);
+
+    const user = {
+        name,
+        email,
+        password,
+        confirmPassword
+    }
 
     const userSchema = joi.object({
         name: joi.string().required(),
         email: joi.string().email().required(),
-        password: joi.string().required()
+        password: joi.string().required(),
+        confirmPassword: joi.string().required()
     });
 
-    const { error } = userSchema.validateAsync({ name, email, password });
+    const { error } = userSchema.validateAsync(user, { abortEarly: false });
 
     if (error) {
         res.status(422).send(error.details.map(detail => detail.message));;
+        return;
+    }
+
+    if ((password !== confirmPassword)) {
+        res.status(422).send("As senhas digitadas não são iguais!");
         return;
     }
 
@@ -38,7 +54,7 @@ app.post('/signup', async (req, res) => {
         if (register.rows.length !== 0) return res.sendStatus(409);
 
         await connection.query(`INSERT INTO users (name, email, password) 
-        VALUES ($1, $2, $3)`, [name, email, password]);
+        VALUES ($1, $2, $3)`, [name, email, passwordHash]);
 
         res.sendStatus(201);
     }
@@ -52,12 +68,17 @@ app.post('/signin', async (req, res) => {
 
     const { email, password } = req.body;
 
+    const user = {
+        email,
+        password
+    }
+
     const userSchema = joi.object({
         email: joi.string().email().required(),
         password: joi.string().required()
     });
 
-    const { error } = userSchema.validateAsync({ email, password });
+    const { error } = userSchema.validateAsync(user, { abortEarly: false });
 
     if (error) {
         res.status(422).send(error.details.map(detail => detail.message));;
@@ -65,17 +86,23 @@ app.post('/signin', async (req, res) => {
     }
 
     try {
-        const userValidation = await connection.query(`SELECT * FROM users WHERE email=$1 AND password=$2`,
-            [email, password]);
 
-        if (userValidation.rows.length === 0) {
+        const userValidation = await connection.query(`SELECT * FROM users WHERE email=$1`,
+            [email]);
+
+        if(userValidation.rows.length === 0) return res.sendStatus(401);
+
+        if (userValidation.rows[0].password && bcrypt.compareSync(password, userValidation.rows[0].password)) {
+            const token = v4();
+            await connection.query(`INSERT INTO sessions (token, "userId") VALUES ($1, $2)`, [token, userValidation.rows[0].id]);
+            res.status(200).send(token);
+
+        }else{
             res.sendStatus(401);
             return;
         }
 
-        const token = v4();
-        await connection.query(`INSERT INTO sessions (token, "userId") VALUES ($1, $2)`, [token, userValidation.rows[0].id]);
-        res.status(200).send(token);
+
     }
     catch (e) {
         res.sendStatus(500);
@@ -89,8 +116,6 @@ app.post('/urls/shorten', async (req, res) => {
     const token = authorization?.replace("Bearer", "").trim();
 
     const { url } = req.body;
-
-    const view = 0;
 
     const bodySchema = joi.object({
         url: joi.string().pattern(/^https?:\/\/(www\.)[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}$/).required(),
